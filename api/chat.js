@@ -1,9 +1,17 @@
 export default async function handler(req, res) {
   try {
-    const body = await new Response(req.body).json();
-    const mensagem = body.mensagem || "Olá";
+    if (req.method !== "POST") {
+      return res.status(405).send("Método não permitido");
+    }
 
-    const resposta = await fetch("https://api.openai.com/v1/chat/completions", {
+    const body = await req.json();
+    const mensagem = body.mensagem;
+
+    if (!mensagem) {
+      return res.status(400).send("Mensagem vazia");
+    }
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENAI_KEY}`,
@@ -18,12 +26,16 @@ export default async function handler(req, res) {
       })
     });
 
-    const data = await resposta.json();
+    const data = await r.json();
 
-    // RESPONDE TEXTO PURO (BDFD SEM $jsonRequest)
+    if (!data.choices || !data.choices[0]) {
+      return res.status(500).send("Erro na resposta da OpenAI");
+    }
+
+    // TEXTO PURO (BDFD compatível)
     res.status(200).send(data.choices[0].message.content);
 
-  } catch (erro) {
+  } catch (e) {
     res.status(500).send("Erro na IA");
   }
 }
